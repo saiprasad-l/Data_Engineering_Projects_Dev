@@ -76,6 +76,11 @@ def test_unknown_proc_is_reported():
     assert result.reports[0].status == "unsupported"
 
 
+def test_macro_language_is_reported():
+    result = convert("%let cutoff = 700;\ndata o; set t; run;", "t.sas", SCHEMA)
+    assert not result.ok and result.reports[0].title == "SAS macro language"
+
+
 def test_first_assignment_fixes_character_length():
     notes = report_for("data o; set t; if x > 1 then r = 'LOW'; else r = 'MEDIUM'; run;")[0].notes
     assert any("'MEDIUM' is truncated to 'MED'" in n for n in notes)

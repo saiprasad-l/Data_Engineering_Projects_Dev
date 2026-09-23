@@ -1,0 +1,21 @@
+# Private working notes — never publish
+HANDOFF.md
+
+# Data: raw Kaggle download and generated samples stay local / in a Databricks Volume
+data/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Spark local artefacts
+spark-warehouse/
+metastore_db/
+derby.log
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/

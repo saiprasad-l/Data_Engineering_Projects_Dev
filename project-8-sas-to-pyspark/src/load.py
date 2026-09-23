@@ -119,28 +119,46 @@ def convert(pattern: str):
 
 
 def generated_module(pattern: str):
-    import importlib.util
-
+    """Import the committed generated/pNN_*.py file."""
     path = generated_path(pattern)
-    spec = importlib.util.spec_from_file_location(f"generated.{path.stem}", path)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
+    return module_from_code(path.read_text(), f"generated_{path.stem}")
+
+
+def module_from_code(code: str, name: str):
+    """Load generated source as a module without writing it anywhere (on
+    Databricks the Git folder may be read-only for the running notebook)."""
+    import types
+
+    module = types.ModuleType(name)
+    exec(compile(code, f"<{name}>", "exec"), module.__dict__)
     return module
 
 
-def migrated(pattern: str, df: pd.DataFrame | None = None) -> pd.DataFrame:
+def to_pandas(df) -> pd.DataFrame:
+    """Spark -> pandas with dates as ISO strings, the oracle's representation."""
+    date_cols = [f.name for f in df.schema.fields if f.dataType.typeName() == "date"]
+    pdf = df.toPandas()
+    for c in date_cols:
+        pdf[c] = pdf[c].map(lambda d: None if d is None else d.isoformat())
+    return pdf
+
+
+def migrated(pattern: str, df: pd.DataFrame | None = None, data_path: str | Path = SAMPLE,
+             write: bool = True) -> pd.DataFrame:
     """Convert the SAS program, run the generated PySpark on the sample, return
     the program's output as pandas (dates as ISO strings, like the oracle).
 
     `df` is accepted for the parity contract but unused: Spark reads the same
-    sample file itself, as it would on Databricks."""
+    sample file itself, as it would on Databricks. `write=False` converts in
+    memory instead of refreshing generated/."""
+    from .converter import convert as _convert
     from .spark import get_spark
 
-    convert(pattern)
+    if write:
+        result = convert(pattern)
+    else:
+        result = _convert(sas_program(pattern), f"sas/{PATTERNS[pattern].sas_file}", INPUT_SCHEMAS)
     spark = get_spark()
-    out = generated_module(pattern).run(spark, {"loans": spark_loans(spark)})[PATTERNS[pattern].output]
-    date_cols = [f.name for f in out.schema.fields if f.dataType.typeName() == "date"]
-    pdf = out.toPandas()
-    for c in date_cols:
-        pdf[c] = pdf[c].map(lambda d: None if d is None else d.isoformat())
-    return pdf
+    module = module_from_code(result.code, f"generated_p{pattern}")
+    out = module.run(spark, {"loans": spark_loans(spark, data_path)})[PATTERNS[pattern].output]
+    return to_pandas(out)

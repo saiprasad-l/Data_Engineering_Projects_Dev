@@ -198,6 +198,15 @@ class Generator:
     # -- program ------------------------------------------------------------
 
     def program(self, prog: ir.Program) -> Conversion:
+        macro = [g for g in prog.globals if g.lstrip().startswith("%")]
+        other = [g.split()[0].upper() for g in prog.globals if not g.lstrip().startswith("%")]
+        if macro:
+            self.reports.append(StepReport("SAS macro language", (0, 0), "unsupported", [
+                f"macro statements are not supported ({macro[0].splitlines()[0][:60]} ...): "
+                "resolve macros first (e.g. from the SAS log with MPRINT) and convert the expanded code"]))
+        if other:
+            self.reports.append(StepReport("global statements", (0, 0), "converted", [
+                f"{', '.join(sorted(set(other)))} ignored (session settings, no effect on data values)"]))
         for step in prog.steps:
             title = _title(step)
             report = StepReport(title, (step.line_start, step.line_end))
