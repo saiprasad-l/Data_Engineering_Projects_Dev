@@ -1,0 +1,6 @@
+# Local dev/test. Databricks serverless ships its own Spark; these pins keep
+# local runs close to it.
+pyspark==4.2.0
+pandas>=2.2,<3
+pyarrow>=15
+pytest>=8
