@@ -86,16 +86,12 @@ def p10(loans: DataFrame) -> DataFrame:
 NAIVE = {"01": p01, "02": p02, "05": p05, "07": p07, "10": p10}
 
 
-def run(pattern: str) -> pd.DataFrame:
+def run(pattern: str, data_path=None) -> pd.DataFrame:
     from . import load
     from .spark import get_spark
 
     spark = get_spark()
-    loans = load.spark_loans(spark)
+    loans = load.spark_loans(spark, data_path or load.SAMPLE)
     fn = NAIVE[pattern]
     out = fn(loans, spark) if pattern == "07" else fn(loans)
-    date_cols = [f.name for f in out.schema.fields if f.dataType.typeName() == "date"]
-    pdf = out.toPandas()
-    for c in date_cols:
-        pdf[c] = pdf[c].map(lambda d: None if d is None else d.isoformat())
-    return pdf
+    return load.to_pandas(out)
